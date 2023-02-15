@@ -1,29 +1,67 @@
 const { response } = require('express');
+const Usuario = require('../models/usuario');
+const bcryptjs = require('bcryptjs');
 
-const userGet = (req, res = response) => {
-    const querys = req.query;
+const userGet = async(req = request, res = response) => {
+    const { limite=5, desde = 0 } = req.query; 
+    const where={estado:true};
+    
+    const [total, usuarios] = await Promise.all([
+        Usuario.countDocuments(where),
+        Usuario.find(where)
+            .skip(Number(desde))
+            .limit(Number(limite))
+    ]);
+
     res.json({
-        'ok': true,
-        'mensaje':'GET API - Controlador',
-        'querys': querys
-    })
+        total,
+        usuarios
+    });
 };
+const userPost = async (req, res = response) => {
+    
+    const {nombre,correo,password,rol} = req.body;
+    const usuario = new Usuario({nombre,correo,password,rol});
+    
+    // Encriptar la contraseña
+    const salt = bcryptjs.genSaltSync();
+    usuario.password = bcryptjs.hashSync(password, salt);
+    // guardar en bd
+    await usuario.save();
 
-const userPost = (req, res = response) => {
-    const {nombre, edad} = req.body;
     res.json({
         'ok': true,
-        'mensaje':'POST API - Controlador',
-        'nombre': nombre,
-        'edad': edad 
+        usuario
     })
 }; 
-const userPut = (req, res = response) => {
-    const aidi = req.params.aidi;
+const userPut = async(req, res = response) => {
+    const {id} = req.params;
+    const {_id, password, google, ...resto} = req.body;
+    
+    // TODO VALIDAR CONTRA BD
+    if( password ){
+        // Encriptar la contraseña
+        const salt = bcryptjs.genSaltSync();
+        resto.password = bcryptjs.hashSync(password, salt);
+    }
+    const usuario = await Usuario.findByIdAndUpdate(id, resto);
     res.json({
-        'ok': true,
         'mensaje':'PUT API - Controlador',
-        'aidi': aidi
+        usuario
+    })
+}; 
+const userDelete = async(req, res = response) => {
+    const { id } = req.params;
+
+    // Borrar literalmente de la base de datos
+    // const usuario = await Usuario.findByIdAndDelete( id );
+
+    // Borrar figurativamente de la base de datos (cambiar el estatus)
+    const borrar = {estado:false};
+    const usuario = await Usuario.findByIdAndUpdate(id, borrar);
+
+    res.json({
+        usuario
     })
 }; 
 const userPatch = (req, res = response) => {
@@ -32,12 +70,7 @@ const userPatch = (req, res = response) => {
         'mensaje':'PATCH API - Controlador'
     })
 }; 
-const userDelete = (req, res = response) => {
-    res.json({
-        'ok': true,
-        'mensaje':'DELETE API - Controlador'
-    })
-}; 
+
 
 module.exports = {
     userGet,
